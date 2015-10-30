@@ -88,6 +88,10 @@ def GenerateFeatureComputationPlan( feature_list, name='custom' ):
     plan_cache[ feature_groups ] = obj
     return obj
 
+# THIS IS A HACK
+comp_plan = wndcharm.StdFeatureComputationPlans.getFeatureSetLong()
+long_feature_set_names = [ comp_plan.getFeatureNameByIndex(i) for i in xrange( comp_plan.n_features ) ]
+del comp_plan
 
 #############################################################################
 # class definition of FeatureVector
@@ -431,7 +435,12 @@ class FeatureVector( object ):
 
     #==============================================================
     def Derive( self, base=None, **kwargs ):
-        """Make a copy of this FeatureVector, except members passed as kwargs"""
+        """Make a copy of this FeatureVector, except members passed as kwargs
+        
+        Arguments:
+            base - bool, default None:
+                When calling daughter class SlidingWindow.sample(), returns an obj 
+                of type FeatureVector instead of SlidingWindow."""
 
         from copy import deepcopy
         if base:
@@ -467,7 +476,7 @@ class FeatureVector( object ):
         return self.Derive()
 
     #==============================================================
-    def GenerateSigFilepath( self ):
+    def GenerateMetadataFilepath( self ):
         """The C implementation of wndchrm placed feature metadata
         in the filename in a specific order, recreated here."""
 
@@ -517,7 +526,7 @@ class FeatureVector( object ):
         if self.long:
             base += '-l'
 
-        return base + '.sig'
+        return base
 
     #================================================================
     def GetOriginalPixelPlane( self, cache=False ):
@@ -657,11 +666,17 @@ class FeatureVector( object ):
         """@brief Loads precalculated features, or calculates new ones, based on which instance
         attributes have been set, and what their values are.
 
-        write_to_disk (bool) - save features to text file which by convention has extension ".sig"
-        update_samp_opts_from_pathname (bool) - If a .sig file exists, don't overwrite
-            self's sampling options from the sampling options in the .sig file pathname.
+        Arguments:
+            write_to_disk - bool, str, default=True
+                True: Save features to plaintext file which by convention has extension ".sig"
+                'numpy': For large, non-color feature set only (feature set minor version 2)
+                    save features to binary numpy .npy file
+            update_samp_opts_from_pathname - bool, default=None:
+                If a .sig file exists, don't overwrite self's sampling options 
+                from the sampling options in the .sig file pathname.
  
-        Returns self for convenience."""
+        Returns:
+            self"""
 
         # 0: What features does the user want?
         # 1: are there features already calculated somewhere?
@@ -693,6 +708,15 @@ class FeatureVector( object ):
                 print 'Loaded {0} features from disk for sample "{1}"'.format(
                         len( self.temp_names ), self.name )
             partial_load = True
+
+        # Try to load version 3.2 features from .npy file
+        try:
+            self.LoadNumpyFile( quiet=quiet, \
+                    update_samp_opts_from_pathname=update_samp_opts_from_pathname )
+            return self
+        except IOError:
+            # File doesn't exist
+            pass
 
         # All hope is lost, calculate features.
 
@@ -774,7 +798,10 @@ class FeatureVector( object ):
 
         # FIXME: maybe write to disk BEFORE feature reduce? Provide flag to let user decide?
         if write_to_disk:
-            self.ToSigFile( quiet=quiet )
+            if write_to_disk == 'numpy':
+                self.ToNumpyFile( quiet=quiet )
+            else:
+                self.ToSigFile( quiet=quiet )
 
         # Feature names need to be modified for their sampling options.
         # Base case is that channel goes in the innermost parentheses, but really it's not
@@ -957,17 +984,63 @@ class FeatureVector( object ):
         return newfv
 
     #================================================================
-    def LoadSigFile( self, sigfile_path=None, update_samp_opts_from_pathname=None,
+    def LoadNumpyFile( self, npyfile_path=None, update_samp_opts_from_pathname=None,
             quiet=False ):
-        """Load computed features from a sig file.
+        """Load computed features from a file.
 
         Desired features indicated by strings currently in self.feature_names.
         Desired feature set version indicated self.feature_set_version.
 
         Compare what got loaded from file with desired.
 
-        update_samp_opts_from_pathname (bool) - If a .sig file exists, don't overwrite
-            self's sampling options from the sampling options in the .sig file pathname"""
+        Arguments:
+            path - str:
+                Path to file
+            update_samp_opts_from_pathname - bool:
+                If a .sig file exists, don't overwrite self's sampling options from
+                the sampling options in the .sig file pathname
+        Returns:
+            self"""
+
+        import re
+
+        if npyfile_path:
+            path = npyfile_path
+            if update_samp_opts_from_pathname is None:
+                update_samp_opts_from_pathname = True
+        elif self.auxiliary_feature_storage:
+            path = self.auxiliary_feature_storage
+            if update_samp_opts_from_pathname is None:
+                update_samp_opts_from_pathname = True
+        else:
+            path = self.GenerateMetadataFilepath() + '.npy'
+            update_samp_opts_from_pathname = False
+
+        self.values = np.load( path )
+        self.feature_set_version = '3.2'
+        self.feature_names = long_feature_set_names
+        assert len( self.values ) == len( self.feature_names )
+        self.num_features = len( self.values )
+        return self
+
+    #================================================================
+    def LoadSigFile( self, sigfile_path=None, update_samp_opts_from_pathname=None,
+            quiet=False ):
+        """Load computed features from a file.
+
+        Desired features indicated by strings currently in self.feature_names.
+        Desired feature set version indicated self.feature_set_version.
+
+        Compare what got loaded from file with desired.
+
+        Arguments:
+            path - str:
+                Path to file
+            update_samp_opts_from_pathname - bool:
+                If a .sig file exists, don't overwrite self's sampling options from
+                the sampling options in the .sig file pathname
+        Returns:
+            self"""
 
         import re
 
@@ -980,7 +1053,7 @@ class FeatureVector( object ):
             if update_samp_opts_from_pathname is None:
                 update_samp_opts_from_pathname = True
         else:
-            path = self.GenerateSigFilepath()
+            path = self.GenerateMetadataFilepath() + '.sig'
             update_samp_opts_from_pathname = False
 
         with open( path ) as infile:
@@ -1113,7 +1186,7 @@ class FeatureVector( object ):
         elif self.auxiliary_feature_storage is not None:
             path = self.auxiliary_feature_storage
         else:
-            path = self.auxiliary_feature_storage = self.GenerateSigFilepath()
+            path = self.auxiliary_feature_storage = self.GenerateMetadataFilepath() + '.sig'
 
         if not quiet:
             if exists( path ):
@@ -1128,6 +1201,28 @@ class FeatureVector( object ):
             out.write( "{0}\n".format( self.source_filepath ) )
             for val, name in zip( self.values, self.feature_names ):
                 out.write( "{0:0.8g} {1}\n".format( val, name ) )
+                
+    #================================================================
+    def ToNumpyFile( self, path=None, quiet=False ):
+        """Write features to binary .npy format"""
+        # FIXME: obviously temporary
+
+        from os.path import exists
+        if path:
+            self.auxiliary_feature_storage = path
+        elif self.auxiliary_feature_storage is not None:
+            path = self.auxiliary_feature_storage
+        else:
+            path = self.auxiliary_feature_storage = self.GenerateMetadataFilepath() + '.npy'
+
+        if not quiet:
+            if exists( path ):
+                print "Overwriting {0}".format( path )
+            else:
+                print 'Writing signature file "{0}"'.format( path )
+        
+        # float32 is plenty of precision
+        np.save( self.auxiliary_feature_storage, self.values.astype( np.float32 ) )
 
 # end definition class FeatureVector
 

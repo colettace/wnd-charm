@@ -399,7 +399,9 @@ class FeatureSpace( object ):
         """Returns new instance of FeatureSpace build from a saved pickle file,
         with a filename ending in .fit.pickle"""
 
-        path, filename = os.path.split( pathname )
+        import pickle
+        from os.path import split
+        path, filename = split( pathname )
         if filename == "":
             raise ValueError( 'Invalid pathname: {0}'.format( pathname ) )
 
@@ -420,11 +422,6 @@ class FeatureSpace( object ):
                 the_training_set.data_list[i] = the_training_set.data_matrix[sample_row : sample_row + nrows]
                 sample_row += nrows
 
-        if (the_training_set.feature_set_version is None):
-            the_training_set.feature_set_version = "1." + str(
-                feature_vector_minor_version_from_num_features_v1.get( 
-                    len(the_training_set.feature_names), 0 ) )
-
         return the_training_set
 
     #==============================================================
@@ -432,6 +429,8 @@ class FeatureSpace( object ):
         """Pickle this instance of FeatureSpace and write to file whose path is optionally
         specified by argument "pathname" """
 
+        from os.path import isdir, join, split, exists
+        import pickle
         outfile_pathname = ""
         if pathname != None:
             outfile_pathname = pathname
@@ -440,15 +439,15 @@ class FeatureSpace( object ):
             if self.source_filepath == None or self.source_filepath == "":
                 raise ValueError( "Can't pickle this training set: its 'source_filepath' member"\
                         "is not defined, and you did not specify a file path for the pickle file." )
-            if os.path.isdir( self.source_filepath ):
+            if isdir( self.source_filepath ):
                 # this trainingset was generated from a directory
                 # naming convention is /path/to/topleveldir/topleveldir-options.fit.pickled
-                root, top_level_dir = os.path.split( self.source_filepath )
+                root, top_level_dir = split( self.source_filepath )
                 if self.feature_options != None and self.feature_options != "":
-                    outfile_pathname = os.path.join( self.source_filepath, \
+                    outfile_pathname = join( self.source_filepath, \
                                               top_level_dir + self.feature_options + ".fit.pickled" )
                 else:
-                    outfile_pathname = os.path.join( self.source_filepath, \
+                    outfile_pathname = join( self.source_filepath, \
                                           top_level_dir + ".fit.pickled" )
             else:
                 # was genearated from a file, could have already been a pickled file
@@ -459,7 +458,7 @@ class FeatureSpace( object ):
                 else:
                     outfile_pathname = self.source_filepath + ".fit.pickled"    
 
-        if os.path.exists( outfile_pathname ):
+        if exists( outfile_pathname ):
             print "Overwriting {0}".format( outfile_pathname )
         else:
             print "Writing {0}".format( outfile_pathname )
@@ -801,9 +800,9 @@ class FeatureSpace( object ):
         for line_num, line in enumerate( fitfile ):
             if line_num is 0:
                 # 1st line: number of classes and feature vector version
-                num_classes, feature_set_version = re.match('^(\S+)\s*(\S+)?$', line.strip()).group(1, 2)
+                num_classes, feature_set_version = re.match(r'^(\S+)\s*(\S+)?$', line.strip()).group(1, 2)
                 if feature_set_version is None:
-                    feature_set_version = "1.0"
+                    raise ValueError( 'WND-CHARM Feature Set appears to be ancient (pre-2010) which contained buggy features, please recalculate features' )
                 new_fs.feature_set_version = feature_set_version
                 num_classes = int( num_classes )
                 new_fs.num_classes = num_classes
@@ -815,10 +814,6 @@ class FeatureSpace( object ):
                 num_features = int( line )
                 new_fs.num_features = num_features
                 new_fs.feature_names = [None] * num_features
-                if( feature_set_version == "1.0" ):
-                    feature_set_version = "1." + str(
-                        feature_vector_minor_version_from_num_features_v1.get ( num_features,0 ) )
-                    new_fs.feature_set_version = feature_set_version
 
             elif line_num is 2:
                 # 3rd line: number of samples
@@ -972,7 +967,7 @@ class FeatureSpace( object ):
     #==============================================================
     @classmethod
     def NewFromDirectory( cls, top_level_dir_path, discrete=True, num_samples_per_group=None,
-      quiet=False, global_sampling_options=None, write_sig_files_to_disk=True,
+      quiet=False, global_sampling_options=None, write_features_to_disk=True,
       n_jobs=None, **kwargs ):
         """Create a FeatureSpace by reading the given directory for image/feature data,
         using its subdirectory structure to define class membership. Equivalent to the
@@ -991,7 +986,7 @@ class FeatureSpace( object ):
             global_sampling_options (wndcharm.FeatureVector, default None):
                 A template FeatureVector with 5D sampling options set, from which all
                 FeatureVectors generated here will derive.
-            write_sig_files_to_disk (bool, default True):
+            write_features_to_disk (bool, default True):
                 Save any features calculated to WND-CHARM .sig file
             n_jobs (int, bool, default None):
                 If features need to be calculated. If true, use all cores available on
@@ -1071,9 +1066,9 @@ class FeatureSpace( object ):
         # Load features from disk, or calculate them if they don't exist:
         if n_jobs is not None:
             from .utils import parallel_compute
-            parallel_compute( feature_vector_list, n_jobs )
+            parallel_compute( samples, n_jobs, filetype=write_features_to_disk, quiet=quiet )
         for fv in feature_vector_list:
-            fv.GenerateFeatures( write_to_disk=write_sig_files_to_disk,
+            fv.GenerateFeatures( write_to_disk=write_features_to_disk,
                 update_samp_opts_from_pathname=False, quiet=quiet )
 
         name = basename( top_level_dir_path )
@@ -1090,7 +1085,7 @@ class FeatureSpace( object ):
     #==============================================================
     @classmethod
     def NewFromFileOfFiles( cls, pathname, discrete=True, num_samples_per_group=None, quiet=False,
-             global_sampling_options=None, write_sig_files_to_disk=True, n_jobs=None,
+             global_sampling_options=None, write_features_to_disk=True, n_jobs=None,
              **kwargs ):
         """Create a FeatureSpace from a tab-separated text file containing paths to TIFF files,
         ground truth values, and 5D sampling options.
@@ -1103,9 +1098,9 @@ class FeatureSpace( object ):
                     and sampling options contained by braces ("{}") and separated by semicolons
                     (";"). Use to define a more complex feature space. Example:
 
-sample1 ClassA  /path/to/ClassA/sample1_A.tiff    {x=12;y=34;w;56;h=78} /path/to/ClassA/sample1_B.tiff {x=12;y=34;w;56;h=78}
-sample2 ClassA  /path/to/ClassA/sample2_A.tiff    {x=12;y=34;w;56;h=78} /path/to/ClassA/sample2_A.tiff {x=12;y=34;w;56;h=78}
-...
+        sample1 ClassA  /path/to/ClassA/sample1_A.tiff    {x=12;y=34;w;56;h=78} /path/to/ClassA/sample1_B.tiff {x=12;y=34;w;56;h=78}
+        sample2 ClassA  /path/to/ClassA/sample2_A.tiff    {x=12;y=34;w;56;h=78} /path/to/ClassA/sample2_A.tiff {x=12;y=34;w;56;h=78}
+        ...
 
         Arguments:
             pathname (str):
@@ -1120,7 +1115,7 @@ sample2 ClassA  /path/to/ClassA/sample2_A.tiff    {x=12;y=34;w;56;h=78} /path/to
             global_sampling_options (wndcharm.FeatureVector, default None):
                 A template FeatureVector with 5D sampling options set, from which all
                 FeatureVectors generated here will derive.
-            write_sig_files_to_disk (bool, default True):
+            write_features_to_disk (bool, default True):
                 Save any features calculated to WND-CHARM .sig file
             n_jobs (int, bool, default None):
                 If features need to be calculated. If true, use all cores available on
@@ -1367,9 +1362,9 @@ sample2 ClassA  /path/to/ClassA/sample2_A.tiff    {x=12;y=34;w;56;h=78} /path/to
         # Load features from disk, or calculate them if they don't exist:
         if n_jobs is not None:
             from .utils import parallel_compute
-            parallel_compute( samples, n_jobs, quiet=quiet )
+            parallel_compute( samples, n_jobs, filetype=write_features_to_disk, quiet=quiet )
         for fv in samples:
-            fv.GenerateFeatures( write_sig_files_to_disk,
+            fv.GenerateFeatures( write_features_to_disk,
                 update_samp_opts_from_pathname=False, quiet=quiet )
 
         assert num_features > 0
@@ -1384,7 +1379,7 @@ sample2 ClassA  /path/to/ClassA/sample2_A.tiff    {x=12;y=34;w;56;h=78} /path/to
         return retval
     #==============================================================
     @classmethod
-    def NewFromSlidingWindow( cls, window, n_jobs=None, quiet=True):
+    def NewFromSlidingWindow( cls, window, n_jobs=None, write_features_to_disk=True, quiet=True):
         """Takes features derived from samples from a wndchrm.FeatureVector.SlidingWindow
         and constructs a FeatureSpace out of them.
 
@@ -1394,6 +1389,10 @@ sample2 ClassA  /path/to/ClassA/sample2_A.tiff    {x=12;y=34;w;56;h=78} /path/to
             n_jobs (int or bool, default None):
                 Number of cores to concurrently calculate features, or all available if
                 True.
+            write_features_to_disk (bool, str):
+                If calculated features, save FeatureVectors to intermediate file.
+                If 'numpy' and feature set is 3.2: save to binary Numpy '.npy', dtype=np.float32
+                For parallel feature calculation, intermediates are saved regardless.
         Returns:
             instance of wndcharm.FeatureSpace.FeatureSpace"""
 
@@ -1404,9 +1403,9 @@ sample2 ClassA  /path/to/ClassA/sample2_A.tiff    {x=12;y=34;w;56;h=78} /path/to
         # Load features from disk, or calculate them if they don't exist:
         if n_jobs is not None:
             from .utils import parallel_compute
-            parallel_compute( samples, n_jobs, quiet=quiet )
+            parallel_compute( samples, n_jobs, filetype=write_features_to_disk, quiet=quiet )
         for fv in samples:
-            fv.GenerateFeatures( update_samp_opts_from_pathname=False, quiet=quiet )
+            fv.GenerateFeatures( update_samp_opts_from_pathname=False, write_to_disk=write_features_to_disk, quiet=quiet )
 
         new_fs = cls.NewFromListOfFeatureVectors( samples, name=window.name,
                 source_filepath=window.source_filepath, quiet=True )
@@ -2008,8 +2007,8 @@ sample2 ClassA  /path/to/ClassA/sample2_A.tiff    {x=12;y=34;w;56;h=78} /path/to
             raise ValueError( "Can't perform SamplesUnion on following FeatureSpace objs: feature_names don't match.\n{0}\n{1}".format(
                 self, other_fs ) )
 
-        #FIXME: Use override and self.normalized_against to make sure it's ok to
-        #       join samples.
+        if (self.normalized_against or other_fs.normalized_against) and not override:
+            raise ValueError( 'One or both feature sets are normalized (feature maxs/mins are set). Join only raw features or set override arg=True.' )
         assert self.shape[1] == self.num_features == other_fs.shape[1] == other_fs.num_features
         assert self.num_samples == self.shape[0]
         assert other_fs.num_samples == other_fs.shape[0]
@@ -2074,19 +2073,19 @@ sample2 ClassA  /path/to/ClassA/sample2_A.tiff    {x=12;y=34;w;56;h=78} /path/to
     def __add__( self, other ):
         return self.SamplesUnion( other, quiet=True )
 
-    #==============================================================
-    def FeaturesUnion( self, other_fs, inplace=False ):
-        """Concatenate two FeatureSpaces along the features (columns) axis."""
-
-        if not isinstance( other_fs, FeatureSpace ):
-            raise ValueError( 'Arg other_fs needs to be of type "FeatureSpace", was a {0}'.format(
-                type( other_fs ) ) )
-
-        raise NotImplementedError()
-
-    #==============================================================
-    def ScrambleGroundTruths( self ):
-        """For a future release. Produce an instant negative control training set"""
-        raise NotImplementedError()
+#    #==============================================================
+#    def FeaturesUnion( self, other_fs, inplace=False ):
+#        """Concatenate two FeatureSpaces along the features (columns) axis."""
+#
+#        if not isinstance( other_fs, FeatureSpace ):
+#            raise ValueError( 'Arg other_fs needs to be of type "FeatureSpace", was a {0}'.format(
+#                type( other_fs ) ) )
+#
+#        raise NotImplementedError()
+#
+#    #==============================================================
+#    def ScrambleGroundTruths( self ):
+#        """For a future release. Produce an instant negative control training set"""
+#        raise NotImplementedError()
 
 # END FeatureSpace class definition

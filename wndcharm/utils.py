@@ -335,6 +335,7 @@ def compare( a_list, b_list, atol=1e-7 ):
 # ============================================================
 
 def init_worker():
+    """Let the master process handle a Ctrl-c"""
     import signal
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     #from multiprocessing import log_to_stderr
@@ -361,12 +362,16 @@ def WorkerFunction( fv ):
     """Helper function used for parallel calculation of image features"""
     fv.GenerateFeatures( write_to_disk=True, quiet=True )
 
+def BinarySigFileWorkerFunction( fv ):
+    """Helper function used for parallel calculation of image features"""
+    fv.GenerateFeatures( write_to_disk='numpy', quiet=True )
+
 def WorkerFunctionVerbose( fv ):
     """Helper function used for parallel calculation of image features"""
     print_log_message( fv )
     fv.GenerateFeatures( write_to_disk=True, quiet=False )
 
-def parallel_compute( samples, n_jobs=True, quiet=True ):
+def parallel_compute( samples, n_jobs=True, filetype=None, quiet=True ):
     """WND-CHARM implementation of symmetric multiprocessing, see:
     https://en.wikipedia.org/wiki/Symmetric_multiprocessing"""
 
@@ -383,7 +388,9 @@ def parallel_compute( samples, n_jobs=True, quiet=True ):
 
     pool = Pool( processes=n_jobs, initializer=init_worker )
 
-    if quiet:
+    if filetype == 'numpy':
+        worker = BinarySigFileWorkerFunction
+    elif quiet:
         worker = WorkerFunction
     else:
         worker = WorkerFunctionVerbose
