@@ -648,11 +648,11 @@ class TestFeatureSpace( unittest.TestCase ):
     def test_NewFromDirectory( self ):
         """"""
 
-        ref_sig_path = 'lymphoma_eosin_channel_MCL_test_img_sj-05-3362-R2_001_E-t6x5_5_4-l.sig'
+        ref_sig_path = 'lymphoma_eosin_channel_MCL_test_img_sj-05-3362-R2_001_E-t6x5_5_4.sig'
         ref_fv = FeatureVector.NewFromSigFile( pychrm_test_dir + sep + ref_sig_path )
         from shutil import copy
         tempdir = mkdtemp()
-        img_filename = "lymphoma_eosin_channel_MCL_test_img_sj-05-3362-R2_001_E-t6x5_5_4-l.tiff"
+        img_filename = "lymphoma_eosin_channel_MCL_test_img_sj-05-3362-R2_001_E-t6x5_5_4.tiff"
         orig_img_filepath = pychrm_test_dir + sep + img_filename
         copy( orig_img_filepath, tempdir )
         try:

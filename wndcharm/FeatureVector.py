@@ -1144,7 +1144,15 @@ class SlidingWindow( FeatureVector ):
     w, h, deltax and/or deltay."""
 
     count = 0
+    #==============================================================
+    def __str__( self ):
+        return  super( SlidingWindow, self ).__str__()
 
+    #==============================================================
+    def __repr__( self ):
+        return str(self)
+
+    #==============================================================
     def __init__( self, deltax=None, deltay=None, desired_positions=None, *args, **kwargs ):
         """Will open source image to get dimensions to calculate number of window positions,
         UNLESS using "classic" tiling, a.k.a. contiguous, non-overlapping tiles. Passes
@@ -1194,7 +1202,7 @@ class SlidingWindow( FeatureVector ):
         else:
             raise ValueError( "Could not obtain window/slide dimensions from instance atribute params provided." )
 
-
+    #==============================================================
     def increment_position( self ):
         if self.sample_sequence_id == None:
             self.sample_sequence_id = 0
@@ -1238,6 +1246,7 @@ class SlidingWindow( FeatureVector ):
                     self.sliding_window_col_index == self.sliding_window_num_cols:
                 raise StopIteration
 
+    #==============================================================
     def get_next_position( self ):
         while True :
             self.increment_position()
@@ -1246,11 +1255,10 @@ class SlidingWindow( FeatureVector ):
                     break
             else:
                 break
-
         return self
 
+    #==============================================================
     def sample( self ):
-
         self.values = None
         self.preprocessed_local_px_plane = None
         self.auxiliary_feature_storage = None

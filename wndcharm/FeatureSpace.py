@@ -1103,9 +1103,9 @@ class FeatureSpace( object ):
                     and sampling options contained by braces ("{}") and separated by semicolons
                     (";"). Use to define a more complex feature space. Example:
 
-sample1 ClassA  /path/to/ClassA/sample1_A.tiff    {x=12;y=34;w;56;h=78} /path/to/ClassA/sample1_B.tiff {x=12;y=34;w;56;h=78}
-sample2 ClassA  /path/to/ClassA/sample2_A.tiff    {x=12;y=34;w;56;h=78} /path/to/ClassA/sample2_A.tiff {x=12;y=34;w;56;h=78}
-...
+        sample1 ClassA  /path/to/ClassA/sample1_A.tiff    {x=12;y=34;w;56;h=78} /path/to/ClassA/sample1_B.tiff {x=12;y=34;w;56;h=78}
+        sample2 ClassA  /path/to/ClassA/sample2_A.tiff    {x=12;y=34;w;56;h=78} /path/to/ClassA/sample2_A.tiff {x=12;y=34;w;56;h=78}
+        ...
 
         Arguments:
             pathname (str):
@@ -1397,19 +1397,22 @@ sample2 ClassA  /path/to/ClassA/sample2_A.tiff    {x=12;y=34;w;56;h=78} /path/to
         Returns:
             instance of wndcharm.FeatureSpace.FeatureSpace"""
 
-        samples = [None] * window.num_positions
-        for i, fv in enumerate( window.sample() ):
-            samples[i] = fv
+        if window.auxiliary_feature_storage is not None:
+            new_fs = cls.NewFromFitFile( window.auxiliary_feature_storage )
+        else:
+            samples = [None] * window.num_positions
+            for i, fv in enumerate( window.sample() ):
+                samples[i] = fv
 
-        # Load features from disk, or calculate them if they don't exist:
-        if n_jobs is not None:
-            from .utils import parallel_compute
-            parallel_compute( samples, n_jobs, quiet=quiet )
-        for fv in samples:
-            fv.GenerateFeatures( update_samp_opts_from_pathname=False, quiet=quiet )
+            # Load features from disk, or calculate them if they don't exist:
+            if n_jobs is not None:
+                from .utils import parallel_compute
+                parallel_compute( samples, n_jobs, quiet=quiet )
+            for fv in samples:
+                fv.GenerateFeatures( update_samp_opts_from_pathname=False, quiet=quiet )
 
-        new_fs = cls.NewFromListOfFeatureVectors( samples, name=window.name,
-                source_filepath=window.source_filepath, quiet=True )
+            new_fs = cls.NewFromListOfFeatureVectors( samples, name=window.name,
+                    source_filepath=window.source_filepath, quiet=True )
 
         if not quiet:
             print "NEW FEATURE SPACE FROM SCANING WINDOW:", str( new_fs )

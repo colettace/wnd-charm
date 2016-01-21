@@ -1,24 +1,24 @@
 """
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                                                                               
- Copyright (C) 2015 National Institutes of Health 
+ 
+ Copyright (C) 2015 National Institutes of Health
 
-    This library is free software; you can redistribute it and/or              
-    modify it under the terms of the GNU Lesser General Public                 
-    License as published by the Free Software Foundation; either               
-    version 2.1 of the License, or (at your option) any later version.         
-                                                                               
-    This library is distributed in the hope that it will be useful,            
-    but WITHOUT ANY WARRANTY; without even the implied warranty of             
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU          
-    Lesser General Public License for more details.                            
-                                                                               
-    You should have received a copy of the GNU Lesser General Public           
-    License along with this library; if not, write to the Free Software        
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA  
-                                                                               
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
+
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                                                                               
+
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  Written by:  Christopher Coletta (github.com/colettace)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"""
@@ -62,7 +62,7 @@ class TestPyImageMatrix( unittest.TestCase ):
         # tiled with 6 cols and 5 rows => ROI= 231x208+1155+832
 
         orig_big = join( pychrm_test_dir, 'lymphoma_eosin_channel_MCL_test_img_sj-05-3362-R2_001_E.tif' )
-        orig_cropped = join( pychrm_test_dir, 'lymphoma_eosin_channel_MCL_test_img_sj-05-3362-R2_001_E-t6x5_5_4-l.tiff' )
+        orig_cropped = join( pychrm_test_dir, 'lymphoma_eosin_channel_MCL_test_img_sj-05-3362-R2_001_E-t6x5_5_4.tiff' )
         test_cropped_path = join( tempdir, 'TEST_OpenImageROI.tif' )
 
         x = 1155
@@ -152,7 +152,7 @@ class TestPyImageMatrix( unittest.TestCase ):
         # crop the test image (size=1388x1040) to be bottom right tile of the test image
         # tiled with 6 cols and 5 rows => ROI= 231x208+1155+832
         orig_big = join( pychrm_test_dir, 'lymphoma_eosin_channel_MCL_test_img_sj-05-3362-R2_001_E.tif' )
-        orig_cropped = join( pychrm_test_dir, 'lymphoma_eosin_channel_MCL_test_img_sj-05-3362-R2_001_E-t6x5_5_4-l.tiff' )
+        orig_cropped = join( pychrm_test_dir, 'lymphoma_eosin_channel_MCL_test_img_sj-05-3362-R2_001_E-t6x5_5_4.tiff' )
         test_cropped_path = join( tempdir, 'TEST_submatrix.tif' )
         x = 1155
         y = 832

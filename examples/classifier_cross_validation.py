@@ -2,7 +2,7 @@
 """
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                                                                                
- Copyright (C) 2012 National Institutes of Health 
+ Copyright (C) 2015 National Institutes of Health 
 
     This library is free software; you can redistribute it and/or              
     modify it under the terms of the GNU Lesser General Public                 
@@ -24,25 +24,25 @@
  Written by:  Christopher Coletta <christopher.coletta [at] nih [dot] gov>
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Meant to exercize train/test/split functionality"""
+:"""
 
 
-# import wndcharm
-from wndcharm.FeatureSet import *
 from wndcharm import __version__ as wndcharm_version
 print "wndcharm "+wndcharm_version
 
+from wndcharm.FeatureSpace import FeatureSpace
 import argparse
 
+# Top level parser
 parser = argparse.ArgumentParser( description="perform classifier cross validation" )
+
 parser.add_argument( '-n', help='specify number of train/test splits',
                      type=int, metavar='<integer>', default=5 )
 parser.add_argument( '-f', help='specify number feature usage fraction on interval [0.0,1.0]',
                      type=float, metavar='<float>',default = None)
 parser.add_argument( '-F', help='specify number of features',
                      type=int, metavar='<integer>',default = 200)
-parser.add_argument( 'classifier_file_path', help='path to Pychrm classifier file, could be WND-CHARM .fit file, Pychrm .fit.pickled file, or Pychrm/WND-CHRM file of files .fof',
-                     nargs=1 )
+parser.add_argument( 'classifier_file_path', help='path to WND-CHARM feature space file (.fit/.fof)', nargs=1 )
 parser.add_argument( 'output_filepath', help='Results are written to this file, otherwise to STDOUT',
                      nargs='?', default = None )
 args = parser.parse_args()
@@ -56,14 +56,12 @@ outpath = args.output_filepath
 full_training_set = None
 
 # Get the classifier parameter(s)
-if ( input_filename.endswith (".fit") ):
-	full_training_set = FeatureSet_Discrete.NewFromFitFile( input_filename )
-elif ( input_filename.endswith (".fit.pickled") ):
-	full_training_set = FeatureSet_Discrete.NewFromPickleFile( input_filename )
-elif ( input_filename.endswith (".fof") ):
-	full_training_set = FeatureSet_Discrete.NewFromFileOfFiles( input_filename )
+if input_filename.endswith( ".fit" ):
+    fs = FeatureSpace.NewFromFitFile( input_filename )
+elif input_filename.endswith( ".fof"):
+    fs = FeatureSpace.NewFromFileOfFiles( input_filename )
 else:
-	raise Exception( 'The classifier must either end in .fit, .fit.pickled, or .fof' )
+    raise IOError( 'The classifier must either end in .fit or .fof' )
 
 full_training_set.Print()
 
