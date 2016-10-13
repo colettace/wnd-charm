@@ -612,7 +612,7 @@ class _FeatureSpacePredictionExperiment( _FeatureSpacePrediction ):
 
     #=====================================================================
     @output_railroad_switch
-    def PerSampleStatistics( self, print_indiv=True, quiet=False ):
+    def PerSampleStatistics( self, print_indiv=True, quiet=False, location=False ):
         """Characterizes variability of regressed predicted values across batches.
         _SingleSamplePrediction info is aggregated for each individual sample,
         statistics calculated and printed out.

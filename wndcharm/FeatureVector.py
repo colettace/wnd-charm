@@ -593,7 +593,7 @@ class FeatureVector( object ):
     #================================================================
     def GetPreprocessedLocalPixelPlane( self, cache=False ):
         """obtains a pixel plane in accordance with 5D sampling options as prescribed
-        by instance atributes."""
+        by instance attributes."""
 
         # ImageMatrix::submatrix() has a funky signature:
         #   void ImageMatrix::submatrix (const ImageMatrix &matrix, const unsigned int x1, const unsigned int y1, const unsigned int x2, const unsigned int y2);
@@ -632,7 +632,7 @@ class FeatureVector( object ):
                     ( self.tile_num_rows and self.tile_num_rows > 1 ):
             # for tiling: figure out bounding box for this tile:
             # You have to use floor division here, as opposed to rounding as was previously
-            # used; e.g. and 11x11 image with requested 3x3 tile scheme has a 3.66x3.66
+            # used; e.g. an 11x11 image with requested 3x3 tile scheme has a 3.66x3.66
             # dimension, you can't round up to 4x4 tiles.
             w = int( float( preprocessed_full_px_plane.width ) / self.tile_num_cols )
             h = int( float( preprocessed_full_px_plane.height ) / self.tile_num_rows )
@@ -1167,7 +1167,8 @@ class SlidingWindow( FeatureVector ):
 
     count = 0
 
-    def __init__( self, deltax=None, deltay=None, desired_positions=None, *args, **kwargs ):
+    def __init__( self, deltax=None, deltay=None, masks=None, default_label=None,
+            verbose=False, *args, **kwargs ):
         """Will open source image to get dimensions to calculate number of window positions,
         UNLESS using "classic" tiling, a.k.a. contiguous, non-overlapping tiles. Passes
         args/kwargs straight to FeatureVector constructor.
@@ -1175,16 +1176,25 @@ class SlidingWindow( FeatureVector ):
         Arguments:
             deltax & deltay - int (default None)
                 Number of pixels to move scanning window vertically/horizontally.
-            desired_positions - iterable (default None)
-                list of sample sequence ids with the current scanning pattern that this window
-                should stop at. Allows user to skip window positions, or delegate certain
-                window positions to different processors."""
+
+            masks - dict, default none
+                Keys are names of classes, values are paths to mask images"""
 
         super( SlidingWindow, self ).__init__( *args, **kwargs )
         self.deltax = deltax
         self.deltay = deltay
-        self.desired_positions = desired_positions
+        # list of sample sequence ids with the current scanning pattern that this window
+        # should stop at. Allows user to skip window positions, or delegate certain
+        # window positions to different processors.
+        #self.desired_positions = None
         self.num_positions = None
+        self.verbose = verbose
+
+
+        # Mask attributes
+        self.base_mask = None
+        self.class_masks = None
+        self.default_label = default_label
 
         if self.sample_group_id is None:
             # All sample group ids are the same for all sliding window positions
@@ -1216,6 +1226,22 @@ class SlidingWindow( FeatureVector ):
         else:
             raise ValueError( "Could not obtain window/slide dimensions from instance atribute params provided." )
 
+        if masks:
+            from skimage.io import imread
+            import numpy as np
+            def LoadMask(mask_path):
+                mask = imread( mask_path, as_grey=True ).astype( np.uint8 )
+                return mask > 5
+
+            base_mask_path = masks.get( 'base', None )
+            if base_mask_path:
+                self.base_mask = LoadMask( base_mask_path )
+                del masks['base']
+
+            if len( masks ) > 0:
+                self.class_masks = {}
+                for class_name, class_mask_path in masks.items():
+                    self.class_masks[ class_name ] = LoadMask( class_mask_path )
 
     def increment_position( self ):
         if self.sample_sequence_id == None:
@@ -1261,13 +1287,39 @@ class SlidingWindow( FeatureVector ):
                 raise StopIteration
 
     def get_next_position( self ):
+
         while True :
             self.increment_position()
-            if self.desired_positions is not None:
-                if self.sample_sequence_id in self.desired_positions:
+            left = self.x
+            right = self.x + self.w
+            top = self.y
+            bottom = self.y + self.h
+
+            if self.base_mask is not None:
+                if all( self.base_mask[ top:bottom, left:right ] ):
                     break
+                else:
+                    if self.verbose:
+                        print "Pos={} row={}, col={}, x={}, y={}, w={}, h={} NOT in basemask".format(
+                                self.sample_sequence_id, self.sliding_window_row_index, 
+                                self.sliding_window_col_index, self.x, self.y, self.w, self.h )
             else:
                 break
+
+        if self.class_masks is not None:
+            flag = False
+            for class_name, class_mask in self.class_masks.items():
+                if all( class_mask[ top:bottom, left:right ] ):
+                    self.label = class_name
+                    flag = True
+                    break
+            if not flag:
+                self.label = self.default_label
+
+        if self.verbose:
+            print "Pos={} row={}, col={}, x={}, y={}, w={}, h={}, class={}".format(
+                self.sample_sequence_id, self.sliding_window_row_index, 
+                self.sliding_window_col_index, self.x, self.y, self.w, self.h, self.label )
 
         return self
 
