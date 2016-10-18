@@ -1244,10 +1244,6 @@ class SlidingWindow( FeatureVector ):
                     self.class_masks[ class_name ] = LoadMask( class_mask_path )
 
     def increment_position( self ):
-        if self.sample_sequence_id == None:
-            self.sample_sequence_id = 0
-        else:
-            self.sample_sequence_id += 1
 
         if self.standard_tiling:
             if self.tile_row_index == None:
@@ -1296,7 +1292,7 @@ class SlidingWindow( FeatureVector ):
             bottom = self.y + self.h
 
             if self.base_mask is not None:
-                if all( self.base_mask[ top:bottom, left:right ] ):
+                if self.base_mask[ top:bottom, left:right ].all():
                     break
                 else:
                     if self.verbose:
@@ -1309,17 +1305,22 @@ class SlidingWindow( FeatureVector ):
         if self.class_masks is not None:
             flag = False
             for class_name, class_mask in self.class_masks.items():
-                if all( class_mask[ top:bottom, left:right ] ):
-                    self.label = class_name
+                if class_mask[ top:bottom, left:right ].all():
+                    self.ground_truth_label = class_name
                     flag = True
                     break
             if not flag:
-                self.label = self.default_label
+                self.ground_truth_label = self.default_label
 
         if self.verbose:
             print "Pos={} row={}, col={}, x={}, y={}, w={}, h={}, class={}".format(
                 self.sample_sequence_id, self.sliding_window_row_index, 
-                self.sliding_window_col_index, self.x, self.y, self.w, self.h, self.label )
+                self.sliding_window_col_index, self.x, self.y, self.w, self.h, self.ground_truth_label )
+
+        if self.sample_sequence_id == None:
+            self.sample_sequence_id = 0
+        else:
+            self.sample_sequence_id += 1
 
         return self
 
