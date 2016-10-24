@@ -1190,7 +1190,6 @@ class SlidingWindow( FeatureVector ):
         self.num_positions = None
         self.verbose = verbose
 
-
         # Mask attributes
         self.base_mask = None
         self.class_masks = None
@@ -1236,11 +1235,14 @@ class SlidingWindow( FeatureVector ):
             base_mask_path = masks.get( 'base', None )
             if base_mask_path:
                 self.base_mask = LoadMask( base_mask_path )
-                del masks['base']
+                # create a new dict without the base mask to iterate over
+                other_masks = { k : v for k, v in masks.items() if k != 'base' }
+            else:
+                other_masks = masks
 
-            if len( masks ) > 0:
+            if len( other_masks ) > 0:
                 self.class_masks = {}
-                for class_name, class_mask_path in masks.items():
+                for class_name, class_mask_path in other_masks.items():
                     self.class_masks[ class_name ] = LoadMask( class_mask_path )
 
     def increment_position( self ):
