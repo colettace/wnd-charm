@@ -1117,9 +1117,9 @@ class FeatureSpace( object ):
                     and sampling options contained by braces ("{}") and separated by semicolons
                     (";"). Use to define a more complex feature space. Example:
 
-sample1 ClassA  /path/to/ClassA/sample1_A.tiff    {x=12;y=34;w;56;h=78} /path/to/ClassA/sample1_B.tiff {x=12;y=34;w;56;h=78}
-sample2 ClassA  /path/to/ClassA/sample2_A.tiff    {x=12;y=34;w;56;h=78} /path/to/ClassA/sample2_A.tiff {x=12;y=34;w;56;h=78}
-...
+        sample1 ClassA  /path/to/ClassA/sample1_A.tiff    {x=12;y=34;w;56;h=78} /path/to/ClassA/sample1_B.tiff {x=12;y=34;w;56;h=78}
+        sample2 ClassA  /path/to/ClassA/sample2_A.tiff    {x=12;y=34;w;56;h=78} /path/to/ClassA/sample2_A.tiff {x=12;y=34;w;56;h=78}
+        ...
 
         Arguments:
             pathname (str):
@@ -1870,7 +1870,7 @@ sample2 ClassA  /path/to/ClassA/sample2_A.tiff    {x=12;y=34;w;56;h=78} /path/to
 
             # TRAIN SET SIZE:
             if isinstance( train_size, int ):
-                if train_size < 0 or train_size >= num_samplegroups: # train sets of size 1 are allowed
+                if train_size < 0 or train_size > num_samplegroups: # train sets of size 1 are allowed
                     errmsg = 'Arg train_size ({0}) must be 0 <= train_size < {1} (# images/sample groups).'
                     raise ValueError( errmsg.format( train_size, num_samplegroups ) )
                 n_samplegroups_in_training_set = train_size
@@ -1887,7 +1887,7 @@ sample2 ClassA  /path/to/ClassA/sample2_A.tiff    {x=12;y=34;w;56;h=78} /path/to
                 raise ValueError( 'Invalid input: train_size={0}'.format( test_size ) )
 
             if( n_samplegroups_in_training_set + n_samplegroups_in_test_set ) > num_samplegroups:
-                raise ValueError( 'User input specified train/test feature set membership contain more samples than are availabel.' )
+                raise ValueError( 'User input specified train/test feature set membership contain more samples than are available.' )
 
             train_groups = sorted( unique_samplegroup_ids[ : n_samplegroups_in_training_set ] )
 
