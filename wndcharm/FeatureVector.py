@@ -1167,8 +1167,8 @@ class SlidingWindow( FeatureVector ):
 
     count = 0
 
-    def __init__( self, deltax=None, deltay=None, masks=None, default_label=None,
-            verbose=False, *args, **kwargs ):
+    def __init__( self, deltax=None, deltay=None, masks=None, partial_mask_opts=None,
+            default_label=None, verbose=False,  *args, **kwargs ):
         """Will open source image to get dimensions to calculate number of window positions,
         UNLESS using "classic" tiling, a.k.a. contiguous, non-overlapping tiles. Passes
         args/kwargs straight to FeatureVector constructor.
@@ -1177,8 +1177,16 @@ class SlidingWindow( FeatureVector ):
             deltax & deltay - int (default None)
                 Number of pixels to move scanning window vertically/horizontally.
 
-            masks - dict, default none
-                Keys are names of classes, values are paths to mask images"""
+            masks - dict, default=None
+                Keys are names of classes, values are paths to mask images
+            partial_mask_opts - dict, default=None
+                Keys are names of classes, values are bool or string
+                Indicate what should happen when sliding window position isn't totally within mask
+
+                True: Assign window position to subject class
+                False: Assign window position to background class
+                str: Assign window position to a third class named whose name is contained
+                    the border arg."""
 
         super( SlidingWindow, self ).__init__( *args, **kwargs )
         self.deltax = deltax
@@ -1189,6 +1197,7 @@ class SlidingWindow( FeatureVector ):
         #self.desired_positions = None
         self.num_positions = None
         self.verbose = verbose
+        self.partial_mask_opts = partial_mask_opts
 
         # Mask attributes
         self.base_mask = None
@@ -1230,6 +1239,13 @@ class SlidingWindow( FeatureVector ):
             import numpy as np
             def LoadMask(mask_path):
                 mask = imread( mask_path, as_grey=True ).astype( np.uint8 )
+                data_img_w = self.preprocessed_full_px_plane_width 
+                data_img_h = self.preprocessed_full_px_plane_height 
+                data_img_shape = ( data_img_h, data_img_w )
+                if data_img_shape != mask.shape:
+                    err_msg = "Mask img {} dims {} != data img {} dims {}".format(
+                        mask_path, mask.shape, self.source_filepath, data_img_shape )
+                    raise ValueError( err_msg )
                 return mask > 5
 
             base_mask_path = masks.get( 'base', None )
@@ -1286,6 +1302,9 @@ class SlidingWindow( FeatureVector ):
 
     def get_next_position( self ):
 
+        # Reset label
+        self.ground_truth_label = None
+
         while True :
             self.increment_position()
             left = self.x
@@ -1293,26 +1312,59 @@ class SlidingWindow( FeatureVector ):
             top = self.y
             bottom = self.y + self.h
 
-            if self.base_mask is not None:
+            # Begin subject vs background check
+            if self.base_mask is None:
+                # Nothing to check, this location is fine
+                break
+            else:
                 if self.base_mask[ top:bottom, left:right ].all():
+                    # Entirely within the subject vs background mask, this location is fine
+                    break
+                elif self.partial_mask_opts is not None and 'base' in self.partial_mask_opts \
+                            and self.base_mask[ top:bottom, left:right ].any():
+                    if isinstance( self.partial_mask_opts[ 'base' ], str ):
+                        # User specified that border of subject vs background should have
+                        # a class of its own
+                        if not self.ground_truth_label:
+                            self.ground_truth_label = self.partial_mask_opts[ 'base' ]
+                        else:
+                            self.ground_truth_label += ' | ' + self.partial_mask_opts[ 'base' ]
+                    # This location will go into the feature space
                     break
                 else:
+                    # This location will NOT go into the feature space
                     if self.verbose:
                         print "Pos={} row={}, col={}, x={}, y={}, w={}, h={} NOT in basemask".format(
                                 self.sample_sequence_id, self.sliding_window_row_index, 
                                 self.sliding_window_col_index, self.x, self.y, self.w, self.h )
-            else:
-                break
+            # End subject vs background check
 
+        # Figure out the class to which this window location belongs
+        use_default_label = True
         if self.class_masks is not None:
-            flag = False
+            # Check to see if this window position exists wholly or partially
+            # within whatever class masks the user has proveded:
             for class_name, class_mask in self.class_masks.items():
                 if class_mask[ top:bottom, left:right ].all():
-                    self.ground_truth_label = class_name
-                    flag = True
-                    break
-            if not flag:
+                    use_default_label = False
+                    if not self.ground_truth_label:
+                        self.ground_truth_label = class_name
+                    else:
+                        self.ground_truth_label += ' | ' + class_name
+                elif self.partial_mask_opts is not None and class_name in self.partial_mask_opts \
+                        and class_mask[ top:bottom, left:right ].any():
+                    use_default_label = False
+                    if isinstance( self.partial_mask_opts[ class_name ], str ):
+                        if not self.ground_truth_label:
+                            self.ground_truth_label = self.partial_mask_opts[ class_name ]
+                        else:
+                            self.ground_truth_label += ' | ' + self.partial_mask_opts[ class_name ]
+
+        if use_default_label:
+            if not self.ground_truth_label:
                 self.ground_truth_label = self.default_label
+            else:
+                self.ground_truth_label += ' | ' + self.default_label
 
         if self.verbose:
             print "Pos={} row={}, col={}, x={}, y={}, w={}, h={}, class={}".format(
